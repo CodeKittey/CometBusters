@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
-    <title>Phaser - Making your first game, part 9</title>
+    <title>Comet Busters</title>
+	<link rel="icon" type="image/png" href="assets/shipLiveIcon.png" sizes="32x32">
 	<script type="text/javascript" src="js/phaser.min.js"></script>
     <style type="text/css">
         body {
@@ -14,15 +15,90 @@
 
 <script type="text/javascript">
 
-var game = new Phaser.Game(1120, 840, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+Planet = function(index, game, player){
+
+	var x = game.world.randomX;
+    var y = game.world.randomY;
+
+    this.game = game;
+    this.health = 1;
+    this.player = player;
+    this.alive = true;
+
+	this.planet = game.add.sprite(x, y, 'planet1');
+	this.planet.anchor.set(0.5);
+
+	this.planet.name = index.toString();
+	game.physics.enable(this.planet, Phaser.Physics.ARCADE);
+
+	this.planet.body.immovable - false;
+	this.planet.checkWorldBounds = true;
+	this.planet.body.bounce.setTo(1,1);
+
+	this.planet.angle = game.rnd.angle();
+}
+
+Planet.prototype.touch = function() {
+
+	this.health -= 1;
+
+	this.planet.kill();
+    if (this.health <= 0)
+    {
+        this.alive = false;
+
+        this.planet.kill();
+
+        return true;
+    }
+
+    return false;
+
+}
+
+/*Planet.prototype.update = function() {
+
+    this.shadow.x = this.tank.x;
+    this.shadow.y = this.tank.y;
+    this.shadow.rotation = this.tank.rotation;
+
+    this.turret.x = this.tank.x;
+    this.turret.y = this.tank.y;
+    this.turret.rotation = this.game.physics.arcade.angleBetween(this.tank, this.player);
+
+    if (this.game.physics.arcade.distanceBetween(this.tank, this.player) < 300)
+    {
+        if (this.game.time.now > this.nextFire && this.bullets.countDead() > 0)
+        {
+            this.nextFire = this.game.time.now + this.fireRate;
+
+            var bullet = this.bullets.getFirstDead();
+
+            bullet.reset(this.turret.x, this.turret.y);
+
+            bullet.rotation = this.game.physics.arcade.moveToObject(bullet, this.player, 500);
+        }
+    }
+
+};*/
+const GAME_X = 1120;
+const GAME_Y = 840;
+const SHIPSPEED_MAX = 700;
+const PLANETSPEED = 100;
+const LIVES = 3;
+const PLANETSTOTAL = 6;
+
+
+
+var game = new Phaser.Game(GAME_X, GAME_Y, Phaser.AUTO, '', { preload: preload, create: create, update: update });
 
 function preload() {
 
     game.load.image('space', 'assets/stars.gif');
     game.load.image('ship', 'assets/ship.png');
 	game.load.image('fire', 'assets/fire.png');
-    //game.load.image('star', 'assets/star.png');
-    //game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+    game.load.image('planet1', 'assets/planet1.png');
+    game.load.image('shipLives', 'assets/shipLiveIcon.png');
 
 }
 
@@ -31,30 +107,35 @@ var platforms;
 var cursors;
 var space;
 var currentSpeed = 0;
+var planet;
+var planets;
 
 var score = 0;
 var scoreString = '';
 var scoreText;
 var lives;
+var liveCounter = 3;
 var firingTimer = 0;
 var fire;
 var fireButton;
 
 
 function create() {
-
     //  We're going to be using physics, so enable the Arcade Physics system
     game.physics.startSystem(Phaser.Physics.ARCADE);
 
-    //  A simple background for our game
-	//  The scrolling starfield background
-    space = game.add.tileSprite(0, 0, 1120, 840, 'space');
+    game.add.tileSprite(0, 0, GAME_X, GAME_Y, 'space');
 	//  The hero!
-	ship = game.add.sprite(500,  350, 'ship');
+	ship = game.add.sprite(500, 350, 'ship');
 
 	ship.anchor.setTo(0.5, 0.5);
 	ship.scale.setTo(0.4,0.4);
+
 	game.physics.enable(ship, Phaser.Physics.ARCADE);
+
+	ship.checkWorldBounds = true;
+	ship.events.onOutOfBounds.add(resetObject, this);
+
 
 	//  Our bullet group
     fire = game.add.group();
@@ -71,79 +152,42 @@ function create() {
     scoreString = 'Score : ';
     scoreText = game.add.text(10, 10, scoreString + score, { font: '24px Arial', fill: '#fff' });
 
-    //  The platforms group contains the ground and the 2 ledges we can jump on
-//    platforms = game.add.group();
+	lives = [];
 
-    //  We will enable physics for any object that is created in this group
-//    platforms.enableBody = true;
+	for (var i = 0; i < LIVES; i++)
+	{
+		var x = 35*i + 10;
+		lives[i] = game.add.sprite(x, 40, 'shipLives');
+	}
 
-    // Here we create the ground.
-//    var ground = platforms.create(0, game.world.height - 64, 'ground');
+	//planets for everyone
+	planets = [];
 
-    //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
-//    ground.scale.setTo(2, 2);
-
-    //  This stops it from falling away when you jump on it
-//    ground.body.immovable = true;
-
-    //  Now let's create two ledges
-//    var ledge = platforms.create(400, 400, 'ground');
-//    ledge.body.immovable = true;
-
-//    ledge = platforms.create(-150, 250, 'ground');
-//    ledge.body.immovable = true;
-
-    // The player and its settings
-//    player = game.add.sprite(32, game.world.height - 150, 'dude');
-
-    //  We need to enable physics on the player
-//    game.physics.arcade.enable(player);
-
-    //  Player physics properties. Give the little guy a slight bounce.
-//    player.body.bounce.y = 0.2;
-//    player.body.gravity.y = 300;
-//    player.body.collideWorldBounds = true;
-
-    //  Our two animations, walking left and right.
-//    player.animations.add('left', [0, 1, 2, 3], 10, true);
-    //player.animations.add('right', [5, 6, 7, 8], 10, true);
-
-    //  Finally some stars to collect
-//
-    //  We will enable physics for any star that is created in this group
-//stars.enableBody = true;
-
+	for (var i = 0; i < PLANETSTOTAL; i++)
+    {
+        planets.push(new Planet(i, game, ship));
+    }
     //  Our controls.
     cursors = game.input.keyboard.createCursorKeys();
 	fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 }
 
 function update() {
-    //  Reset the players velocity (movement)
-//    player.body.velocity.x = 0;
 
-/*    if (cursors.left.isDown)
-    {
-        //  Move to the left
-        player.body.velocity.x = -150;
+	for (var i = 0; i < planets.length; i++)
+{
+	planetsAlive = 0;
+	if (planets[i].alive)
+	{
+		planetsAlive++;
+		game.physics.arcade.overlap(ship, planets[i].planet, planetHitsShip, null, this);
+		game.physics.arcade.overlap(fire, planets[i].planet, fireHitPlanet, null, this);
+		planets[i].planet.events.onOutOfBounds.add(resetObject, this);
+		game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
 
-        player.animations.play('left');
-    }
-    else if (cursors.right.isDown)
-    {
-        //  Move to the right
-        player.body.velocity.x = 150;
-
-        player.animations.play('right');
-    }
-    else
-    {
-        //  Stand still
-        player.animations.stop();
-
-        player.frame = 4;
-    }
-	*/
+		//planets[i].update();
+	}
+}
     // Allow the player to jump if they are touching the ground.
 	if (cursors.left.isDown)
     {
@@ -154,7 +198,7 @@ function update() {
         ship.angle += 6;
     }
 
-    if (cursors.up.isDown && currentSpeed <= 700)
+    if (cursors.up.isDown && currentSpeed <= SHIPSPEED_MAX)
     {
         //  The speed we'll travel at
         currentSpeed += 20;
@@ -196,20 +240,59 @@ function fireBullet () {
         {
             //  And fire it
             _fire.reset(ship.x, ship.y);
-			_fire.rotation = this.game.physics.arcade.moveToObject(_fire, this.ship, 500);
 
-            firingTimer = game.time.now + 200;
+			_fire.checkWorldBounds = true;
+		    _fire.outOfBoundsKill = true;
+
+			_fire.rotation = ship.rotation;
+			// Shoot it in the right direction
+		   _fire.body.velocity.x = Math.cos(_fire.rotation) * 900;
+		   _fire.body.velocity.y = Math.sin(_fire.rotation) * 900;
+
+            firingTimer = game.time.now + 100;
         }
     }
 
 }
 
-function resetFire (fire) {
+function planetHitsShip () {
+	//TODO Respawn timeout for collision
+	//TODO Respawn with zero velocity
+	//TODO Animations Explosions
 
-    //  Called if the bullet goes out of the screen
-    fire.kill();
+	liveCounter-=1;
+	lives[liveCounter].kill();
+
+	if(liveCounter !== 0){
+		ship.reset(500, 350);
+		ship.body.velocity.x = 0;
+		ship.body.velocity.y = 0;
+	} else {
+		ship.kill();
+	}
 
 }
+
+function fireHitPlanet (planet, fire) {
+	//TODO Animations Explosions
+	fire.kill();
+	var destroyed = planets[planet.name].touch();
+	//planet.touch();
+}
+
+function resetObject (object) {
+	if(object.x > GAME_X && object.y < GAME_Y){
+		object.reset(0,object.y);
+	} else if (object.x < GAME_X && object.y > GAME_Y) {
+		object.reset(object.x, 0);
+	} else if (object.x < 0 && object.y > 0) {
+		object.reset(GAME_X, object.y);
+	} else {
+		object.reset(object.x, GAME_Y);
+	}
+}
+
+
 </script>
 
 </body>
