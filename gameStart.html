@@ -31,7 +31,7 @@ Planet = function(index, game, player){
 	this.planet.name = index.toString();
 	game.physics.enable(this.planet, Phaser.Physics.ARCADE);
 
-	this.planet.body.immovable - false;
+	this.planet.body.immovable = false;
 	this.planet.checkWorldBounds = true;
 	this.planet.body.bounce.setTo(1,1);
 
@@ -83,7 +83,7 @@ Planet.prototype.touch = function() {
 };*/
 const GAME_X = 1120;
 const GAME_Y = 840;
-const SHIPSPEED_MAX = 700;
+const SHIPSPEED_MAX = 900;
 const PLANETSPEED = 100;
 const LIVES = 3;
 const PLANETSTOTAL = 6;
@@ -118,6 +118,7 @@ var liveCounter = 3;
 var firingTimer = 0;
 var fire;
 var fireButton;
+var respawn = false;
 
 
 function create() {
@@ -198,20 +199,23 @@ function update() {
         ship.angle += 6;
     }
 
-    if (cursors.up.isDown && currentSpeed <= SHIPSPEED_MAX)
+    if (cursors.up.isDown && currentSpeed <= SHIPSPEED_MAX && !respawn)
     {
         //  The speed we'll travel at
         currentSpeed += 20;
     }
-    else
+    else if (currentSpeed > 0 && !respawn)
     {
-        if (currentSpeed > 0)
-        {
             currentSpeed -= 5;
-        }
     }
+	else
+	{
+		currentSpeed = 0;
+		respawn = false;
+	}
 
-    if (currentSpeed > 0)
+
+    if (currentSpeed >= 0)
     {
         game.physics.arcade.velocityFromRotation(ship.rotation, currentSpeed, ship.body.velocity);
     }
@@ -257,19 +261,19 @@ function fireBullet () {
 
 function planetHitsShip () {
 	//TODO Respawn timeout for collision
-	//TODO Respawn with zero velocity
 	//TODO Animations Explosions
-
+	if(!respawn) {
 	liveCounter-=1;
 	lives[liveCounter].kill();
 
 	if(liveCounter !== 0){
+		respawn = true;
 		ship.reset(500, 350);
-		ship.body.velocity.x = 0;
-		ship.body.velocity.y = 0;
+
 	} else {
 		ship.kill();
 	}
+}
 
 }
 
