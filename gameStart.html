@@ -21,21 +21,23 @@ Planet = function(index, game, player){
     var y = game.world.randomY;
 
     this.game = game;
-    this.health = 1;
-    this.player = player;
+    this.health = 3;
     this.alive = true;
 
 	this.planet = game.add.sprite(x, y, 'planet1');
 	this.planet.anchor.set(0.5);
 
+	game.physics.p2.enable([this.planet], false);
+	this.planet.body.clearShapes();
+	this.planet.body.loadPolygon("sprite_physics", "planet1");
+
 	this.planet.name = index.toString();
-	game.physics.enable(this.planet, Phaser.Physics.ARCADE);
 
-	this.planet.body.immovable = false;
-	this.planet.checkWorldBounds = true;
-	this.planet.body.bounce.setTo(1,1);
+	//this.planet.body.immovable = false;
+	//this.planet.checkWorldBounds = true;
+	//this.planet.body.bounce.setTo(1,1);
 
-	this.planet.angle = game.rnd.angle();
+	//this.planet.angle = game.rnd.angle();
 }
 
 Planet.prototype.touch = function() {
@@ -83,7 +85,7 @@ Planet.prototype.touch = function() {
 };*/
 const GAME_X = 1120;
 const GAME_Y = 840;
-const SHIPSPEED_MAX = 900;
+const SHIPSPEED_MAX = 700;
 const PLANETSPEED = 100;
 const LIVES = 3;
 const PLANETSTOTAL = 6;
@@ -99,6 +101,7 @@ function preload() {
 	game.load.image('fire', 'assets/fire.png');
     game.load.image('planet1', 'assets/planet1.png');
     game.load.image('shipLives', 'assets/shipLiveIcon.png');
+	this.game.load.physics("sprite_physics", "assets/sprite_physics.json");
 
 }
 
@@ -122,17 +125,21 @@ var respawn = false;
 
 
 function create() {
-    //  We're going to be using physics, so enable the Arcade Physics system
-    game.physics.startSystem(Phaser.Physics.ARCADE);
+
+    game.physics.startSystem(Phaser.Physics.P2JS);
 
     game.add.tileSprite(0, 0, GAME_X, GAME_Y, 'space');
+
+	game.physics.p2.setBoundsToWorld(false, false, false, false, false);
 	//  The hero!
 	ship = game.add.sprite(500, 350, 'ship');
 
 	ship.anchor.setTo(0.5, 0.5);
-	ship.scale.setTo(0.4,0.4);
+	ship.invincible = false;
 
-	game.physics.enable(ship, Phaser.Physics.ARCADE);
+	game.physics.p2.enable([ship], false);
+	ship.body.clearShapes();
+	ship.body.loadPolygon("sprite_physics", "ship");
 
 	ship.checkWorldBounds = true;
 	ship.events.onOutOfBounds.add(resetObject, this);
@@ -141,13 +148,20 @@ function create() {
 	//  Our bullet group
     fire = game.add.group();
     fire.enableBody = true;
-    fire.physicsBodyType = Phaser.Physics.ARCADE;
-	//fire.scale.setTo(0.4,0.4);
-    fire.createMultiple(30, 'fire',0, false);
+    fire.physicsBodyType = Phaser.Physics.P2JS;
+    fire.createMultiple(30, 'fire');
+
+	fire.forEach(function(child){
+        child.body.clearShapes();
+        child.body.loadPolygon('sprite_physics', 'fire');
+    }, this);
+
+
     fire.setAll('anchor.x', 0.5);
     fire.setAll('anchor.y', 0,5);
+	fire.setAll('checkWorldBounds', true);
     fire.setAll('outOfBoundsKill', true);
-    fire.setAll('checkWorldBounds', true);
+
 
 	//The scoreText //  The score
     scoreString = 'Score : ';
@@ -170,6 +184,7 @@ function create() {
     }
     //  Our controls.
     cursors = game.input.keyboard.createCursorKeys();
+
 	fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 }
 
@@ -181,44 +196,36 @@ function update() {
 	if (planets[i].alive)
 	{
 		planetsAlive++;
-		game.physics.arcade.overlap(ship, planets[i].planet, planetHitsShip, null, this);
-		game.physics.arcade.overlap(fire, planets[i].planet, fireHitPlanet, null, this);
-		planets[i].planet.events.onOutOfBounds.add(resetObject, this);
-		game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
+		//game.physics.arcade.overlap(ship, planets[i].planet, planetHitsShip, null, this);
+		//game.physics.arcade.overlap(fire, planets[i].planet, fireHitPlanet, null, this);
+		//planets[i].planet.events.onOutOfBounds.add(resetObject, this);
+		//game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
 
 		//planets[i].update();
 	}
 }
-    // Allow the player to jump if they are touching the ground.
-	if (cursors.left.isDown)
-    {
-        ship.angle -= 6;
-    }
-    else if (cursors.right.isDown)
-    {
-        ship.angle += 6;
-    }
 
-    if (cursors.up.isDown && currentSpeed <= SHIPSPEED_MAX && !respawn)
-    {
-        //  The speed we'll travel at
-        currentSpeed += 20;
-    }
-    else if (currentSpeed > 0 && !respawn)
-    {
-            currentSpeed -= 5;
-    }
+	if (cursors.left.isDown)
+	{
+		ship.body.rotateLeft(100);
+	}
+	else if (cursors.right.isDown)
+	{
+		ship.body.rotateRight(100);
+	}
 	else
 	{
-		currentSpeed = 0;
-		respawn = false;
+		ship.body.setZeroRotation();
 	}
 
-
-    if (currentSpeed >= 0)
-    {
-        game.physics.arcade.velocityFromRotation(ship.rotation, currentSpeed, ship.body.velocity);
-    }
+	if (cursors.up.isDown)
+	{
+		ship.body.thrust(400);
+	}
+	else if (cursors.down.isDown)
+	{
+		ship.body.reverse(400);
+	}
 
 	//  Firing?
 	  if (fireButton.isDown)
@@ -259,22 +266,30 @@ function fireBullet () {
 
 }
 
-function planetHitsShip () {
+function planetHitsShip (planet) {
 	//TODO Respawn timeout for collision
 	//TODO Animations Explosions
-	if(!respawn) {
-	liveCounter-=1;
-	lives[liveCounter].kill();
 
-	if(liveCounter !== 0){
-		respawn = true;
-		ship.reset(500, 350);
+	console.log(planet.name);
+//	var destroyed = planets[planet.name].touch();
+	if(!ship.invincible) {
+		liveCounter-=1;
+		lives[liveCounter].kill();
 
-	} else {
-		ship.kill();
+		if(liveCounter !== 0) {
+			respawn = true;
+			ship.invincible = true;
+			ship.reset(500, 350);
+
+			game.time.events.add(2000, setInvincible, this);
+		} else {
+			ship.kill();
+		}
 	}
 }
 
+function setInvincible() {
+	ship.invincible = false;
 }
 
 function fireHitPlanet (planet, fire) {
