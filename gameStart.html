@@ -130,7 +130,17 @@ function create() {
 
     game.add.tileSprite(0, 0, GAME_X, GAME_Y, 'space');
 
-	game.physics.p2.setBoundsToWorld(false, false, false, false, false);
+	game.physics.p2.setImpactEvents(true);
+	game.physics.p2.defaultRestitution = 0.8;
+
+
+	//game.physics.p2.setBoundsToWorld(false, false, false, false, false);
+
+	var bulletsCollisionGroup = game.physics.p2.createCollisionGroup();
+	var playerCollisionGroup = game.physics.p2.createCollisionGroup();
+	var planetCollisionGroup = game.physics.p2.createCollisionGroup();
+
+	//game.physics.p2.updateBoundsCollisionGroup();
 	//  The hero!
 	ship = game.add.sprite(500, 350, 'ship');
 
@@ -138,30 +148,45 @@ function create() {
 	ship.invincible = false;
 
 	game.physics.p2.enable([ship], false);
+	ship.enableBody = true;
 	ship.body.clearShapes();
 	ship.body.loadPolygon("sprite_physics", "ship");
 
 	ship.checkWorldBounds = true;
 	ship.events.onOutOfBounds.add(resetObject, this);
 
+	ship.body.setCollisionGroup(playerCollisionGroup);
+	ship.body.collides(planetCollisionGroup, planetHitsShip, this);
 
-	//  Our bullet group
-    fire = game.add.group();
-    fire.enableBody = true;
-    fire.physicsBodyType = Phaser.Physics.P2JS;
-    fire.createMultiple(30, 'fire');
+	//the planets
+	planets = game.add.group();
+	planets.enableBody = true;
+	planets.physicsBodyType = Phaser.Physics.P2JS;
 
-	fire.forEach(function(child){
-        child.body.clearShapes();
-        child.body.loadPolygon('sprite_physics', 'fire');
-    }, this);
+	for (var i = 0; i < PLANETSTOTAL; i++)
+	{
+		var planet = planets.create(game.world.randomX, game.world.randomY, 'planet1');
+		planet.body.setCircle(40);
+		planet.body.setCollisionGroup(planetCollisionGroup);
+		planet.body.collides(bulletsCollisionGroup, fireHitPlanet, this);
+		planet.body.collides(playerCollisionGroup, planetHitsShip, this);
+	}
 
-
-    fire.setAll('anchor.x', 0.5);
-    fire.setAll('anchor.y', 0,5);
+	//the firing bullets
+	fire = game.add.group();
+	fire.enableBody = true;
+	fire.physicsBodyType = Phaser.Physics.P2JS;
+	fire.createMultiple(30, 'fire', 0, false);
+	fire.setAll('anchor.x', 0.5);
+	fire.setAll('anchor.y', 0.5);
+	fire.setAll('outOfBoundsKill', true);
 	fire.setAll('checkWorldBounds', true);
-    fire.setAll('outOfBoundsKill', true);
 
+	fire.forEach(function(bullet){
+	  bullet.body.setCircle(20);
+	  bullet.body.setCollisionGroup(bulletsCollisionGroup);
+	  bullet.body.collides(planetCollisionGroup, fireHitPlanet, this);
+	});
 
 	//The scoreText //  The score
     scoreString = 'Score : ';
@@ -175,13 +200,8 @@ function create() {
 		lives[i] = game.add.sprite(x, 40, 'shipLives');
 	}
 
-	//planets for everyone
-	planets = [];
 
-	for (var i = 0; i < PLANETSTOTAL; i++)
-    {
-        planets.push(new Planet(i, game, ship));
-    }
+
     //  Our controls.
     cursors = game.input.keyboard.createCursorKeys();
 
@@ -193,12 +213,12 @@ function update() {
 	for (var i = 0; i < planets.length; i++)
 {
 	planetsAlive = 0;
-	if (planets[i].alive)
+	if (planets[i])
 	{
 		planetsAlive++;
 		//game.physics.arcade.overlap(ship, planets[i].planet, planetHitsShip, null, this);
 		//game.physics.arcade.overlap(fire, planets[i].planet, fireHitPlanet, null, this);
-		//planets[i].planet.events.onOutOfBounds.add(resetObject, this);
+		planets[i].planet.events.onOutOfBounds.add(resetObject, this);
 		//game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
 
 		//planets[i].update();
@@ -232,15 +252,10 @@ function update() {
 	  {
 		  fireBullet();
 	  }
-
-	  //  Run collision
-	 // game.physics.arcade.overlap(bullets, aliens, collisionHandler, null, this);
-
 }
 
 
 function fireBullet () {
-
     //  To avoid them being allowed to fire too fast we set a time limit
     if (game.time.now > firingTimer)
     {
@@ -254,9 +269,9 @@ function fireBullet () {
 
 			_fire.checkWorldBounds = true;
 		    _fire.outOfBoundsKill = true;
-
-			_fire.rotation = ship.rotation;
 			// Shoot it in the right direction
+			_fire.rotation = ship.rotation - 1.5;
+
 		   _fire.body.velocity.x = Math.cos(_fire.rotation) * 900;
 		   _fire.body.velocity.y = Math.sin(_fire.rotation) * 900;
 
@@ -267,6 +282,7 @@ function fireBullet () {
 }
 
 function planetHitsShip (planet) {
+	console.log("planetHitsShip");
 	//TODO Respawn timeout for collision
 	//TODO Animations Explosions
 
@@ -294,8 +310,9 @@ function setInvincible() {
 
 function fireHitPlanet (planet, fire) {
 	//TODO Animations Explosions
-	fire.kill();
-	var destroyed = planets[planet.name].touch();
+	planet.sprite.kill();
+	fire.sprite.kill();
+	//var destroyed = planets[planet.name].touch();
 	//planet.touch();
 }
 
