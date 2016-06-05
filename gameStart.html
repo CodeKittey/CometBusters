@@ -14,50 +14,6 @@
 <body>
 
 <script type="text/javascript">
-
-Planet = function(index, game, player){
-
-	var x = game.world.randomX;
-    var y = game.world.randomY;
-
-    this.game = game;
-    this.health = 3;
-    this.alive = true;
-
-	this.planet = game.add.sprite(x, y, 'planet1');
-	this.planet.anchor.set(0.5);
-
-	game.physics.p2.enable([this.planet], false);
-	this.planet.body.clearShapes();
-	this.planet.body.loadPolygon("sprite_physics", "planet1");
-
-	this.planet.name = index.toString();
-
-	//this.planet.body.immovable = false;
-	//this.planet.checkWorldBounds = true;
-	//this.planet.body.bounce.setTo(1,1);
-
-	//this.planet.angle = game.rnd.angle();
-}
-
-Planet.prototype.touch = function() {
-
-	this.health -= 1;
-
-	this.planet.kill();
-    if (this.health <= 0)
-    {
-        this.alive = false;
-
-        this.planet.kill();
-
-        return true;
-    }
-
-    return false;
-
-}
-
 /*Planet.prototype.update = function() {
 
     this.shadow.x = this.tank.x;
@@ -156,7 +112,7 @@ function create() {
 	ship.events.onOutOfBounds.add(resetObject, this);
 
 	ship.body.setCollisionGroup(playerCollisionGroup);
-	ship.body.collides(planetCollisionGroup, planetHitsShip, this);
+	ship.body.collides(planetCollisionGroup);
 
 	//the planets
 	planets = game.add.group();
@@ -166,10 +122,13 @@ function create() {
 	for (var i = 0; i < PLANETSTOTAL; i++)
 	{
 		var planet = planets.create(game.world.randomX, game.world.randomY, 'planet1');
+		planet.checkWorldBounds = true;
+		planet.events.onOutOfBounds.add(resetObject, this);
 		planet.body.setCircle(40);
+		planet.rotation = Math.random() * (3 + 3) - 3;
 		planet.body.setCollisionGroup(planetCollisionGroup);
-		planet.body.collides(bulletsCollisionGroup, fireHitPlanet, this);
-		planet.body.collides(playerCollisionGroup, planetHitsShip, this);
+		planet.body.collides(bulletsCollisionGroup);
+		planet.body.collides(playerCollisionGroup , planetHitsShip, this);
 	}
 
 	//the firing bullets
@@ -183,9 +142,9 @@ function create() {
 	fire.setAll('checkWorldBounds', true);
 
 	fire.forEach(function(bullet){
-	  bullet.body.setCircle(20);
-	  bullet.body.setCollisionGroup(bulletsCollisionGroup);
-	  bullet.body.collides(planetCollisionGroup, fireHitPlanet, this);
+		bullet.body.setCircle(20);
+		bullet.body.setCollisionGroup(bulletsCollisionGroup);
+		bullet.body.collides(planetCollisionGroup, fireHitPlanet, this);
 	});
 
 	//The scoreText //  The score
@@ -199,9 +158,6 @@ function create() {
 		var x = 35*i + 10;
 		lives[i] = game.add.sprite(x, 40, 'shipLives');
 	}
-
-
-
     //  Our controls.
     cursors = game.input.keyboard.createCursorKeys();
 
@@ -210,20 +166,15 @@ function create() {
 
 function update() {
 
-	for (var i = 0; i < planets.length; i++)
-{
-	planetsAlive = 0;
-	if (planets[i])
-	{
-		planetsAlive++;
-		//game.physics.arcade.overlap(ship, planets[i].planet, planetHitsShip, null, this);
-		//game.physics.arcade.overlap(fire, planets[i].planet, fireHitPlanet, null, this);
-		planets[i].planet.events.onOutOfBounds.add(resetObject, this);
-		//game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
 
-		//planets[i].update();
-	}
-}
+	planets.forEach(function(planet){
+		//planet.rotation = ship.rotation - 1.5;
+		//game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
+		var rotation = planet.rotation;
+		console.log(rotation);
+		planet.body.velocity.x = Math.cos(rotation) * PLANETSPEED;
+		planet.body.velocity.y = Math.sin(rotation) * PLANETSPEED;
+	});
 
 	if (cursors.left.isDown)
 	{
@@ -282,12 +233,11 @@ function fireBullet () {
 }
 
 function planetHitsShip (planet) {
-	console.log("planetHitsShip");
 	//TODO Respawn timeout for collision
 	//TODO Animations Explosions
 
-	console.log(planet.name);
 //	var destroyed = planets[planet.name].touch();
+	planet.sprite.kill();
 	if(!ship.invincible) {
 		liveCounter-=1;
 		lives[liveCounter].kill();
@@ -304,6 +254,12 @@ function planetHitsShip (planet) {
 	}
 }
 
+//fucking setting everthin on zeroVelocityCrap
+function reset(x, y , object){
+	object.body.x = x;
+	object.body.y = y;
+}
+
 function setInvincible() {
 	ship.invincible = false;
 }
@@ -318,16 +274,15 @@ function fireHitPlanet (planet, fire) {
 
 function resetObject (object) {
 	if(object.x > GAME_X && object.y < GAME_Y){
-		object.reset(0,object.y);
+		reset(0,object.y, object);
 	} else if (object.x < GAME_X && object.y > GAME_Y) {
-		object.reset(object.x, 0);
+		reset(object.x, 0, object);
 	} else if (object.x < 0 && object.y > 0) {
-		object.reset(GAME_X, object.y);
+		reset(GAME_X, object.y, object);
 	} else {
-		object.reset(object.x, GAME_Y);
+		reset(object.x, GAME_Y, object);
 	}
 }
-
 
 </script>
 
