@@ -42,7 +42,10 @@
 const GAME_X = 1120;
 const GAME_Y = 840;
 const SHIPSPEED_MAX = 700;
-const PLANETSPEED = 100;
+const PLANETSPEED_BIG = 100;
+const PLANETSPEED_MIDDLE = 150;
+const PLANETSPEED_SMALL = 180;
+
 const LIVES = 3;
 const PLANETSTOTAL = 6;
 
@@ -55,7 +58,9 @@ function preload() {
     game.load.image('space', 'assets/stars.gif');
     game.load.image('ship', 'assets/ship.png');
 	game.load.image('fire', 'assets/fire.png');
-    game.load.image('planet1', 'assets/planet1.png');
+    game.load.image('planet_big', 'assets/planet_big.png');
+	game.load.image('planet_middle', 'assets/planet_middle.png');
+	game.load.image('planet_small', 'assets/planet_small.png');
     game.load.image('shipLives', 'assets/shipLiveIcon.png');
 	this.game.load.physics("sprite_physics", "assets/sprite_physics.json");
 
@@ -79,6 +84,9 @@ var fire;
 var fireButton;
 var respawn = false;
 
+var bulletsCollisionGroup;
+var playerCollisionGroup;
+var planetCollisionGroup;
 
 function create() {
 
@@ -92,9 +100,9 @@ function create() {
 
 	//game.physics.p2.setBoundsToWorld(false, false, false, false, false);
 
-	var bulletsCollisionGroup = game.physics.p2.createCollisionGroup();
-	var playerCollisionGroup = game.physics.p2.createCollisionGroup();
-	var planetCollisionGroup = game.physics.p2.createCollisionGroup();
+	bulletsCollisionGroup = game.physics.p2.createCollisionGroup();
+	playerCollisionGroup = game.physics.p2.createCollisionGroup();
+	planetCollisionGroup = game.physics.p2.createCollisionGroup();
 
 	//game.physics.p2.updateBoundsCollisionGroup();
 	//  The hero!
@@ -115,20 +123,23 @@ function create() {
 	ship.body.collides(planetCollisionGroup);
 
 	//the planets
-	planets = game.add.group();
-	planets.enableBody = true;
-	planets.physicsBodyType = Phaser.Physics.P2JS;
+	planets_big = game.add.group();
+	planets_big.enableBody = true;
+	planets_big.physicsBodyType = Phaser.Physics.P2JS;
 
-	for (var i = 0; i < PLANETSTOTAL; i++)
-	{
-		var planet = planets.create(game.world.randomX, game.world.randomY, 'planet1');
-		planet.checkWorldBounds = true;
-		planet.events.onOutOfBounds.add(resetObject, this);
-		planet.body.setCircle(40);
-		planet.rotation = Math.random() * (3 + 3) - 3;
-		planet.body.setCollisionGroup(planetCollisionGroup);
-		planet.body.collides(bulletsCollisionGroup);
-		planet.body.collides(playerCollisionGroup , planetHitsShip, this);
+	//the planets
+	planets_middle = game.add.group();
+	planets_middle.enableBody = true;
+	planets_middle.physicsBodyType = Phaser.Physics.P2JS;
+
+	//the planets
+	planets_small = game.add.group();
+	planets_small.enableBody = true;
+	planets_small.physicsBodyType = Phaser.Physics.P2JS;
+
+	for (var i = 0; i < PLANETSTOTAL; i++) {
+		var planet = planets_big.create(game.world.randomX, game.world.randomY, 'planet_big');
+		setPlanetPhysics(planet, 40, PLANETSPEED_BIG);
 	}
 
 	//the firing bullets
@@ -166,15 +177,33 @@ function create() {
 
 function update() {
 
+	for(var i = 0; i < planets_big.children.length; i++){
+		if(i % 2 === 0){
+			planets_big.children[i].body.rotateLeft(i*i + 5);
+		} else {
+			planets_big.children[i].body.rotateRight(i*i + 10);
+		}
+	}
 
-	planets.forEach(function(planet){
-		//planet.rotation = ship.rotation - 1.5;
-		//game.physics.arcade.velocityFromRotation(planets[i].planet.rotation, PLANETSPEED, planets[i].planet.body.velocity);
-		var rotation = planet.rotation;
-		console.log(rotation);
-		planet.body.velocity.x = Math.cos(rotation) * PLANETSPEED;
-		planet.body.velocity.y = Math.sin(rotation) * PLANETSPEED;
-	});
+	if(planets_middle.children) {
+		for(var i = 0; i < planets_middle.children.length; i++){
+			if(i % 2 === 0){
+				planets_middle.children[i].body.rotateLeft(i*2 + 5);
+			} else {
+				planets_middle.children[i].body.rotateRight(i*2 + 10);
+			}
+		}
+	}
+
+	if(planets_small.children) {
+		for(var i = 0; i < planets_small.children.length; i++){
+			if(i % 2 === 0){
+				planets_small.children[i].body.rotateLeft(i + 10);
+			} else {
+				planets_small.children[i].body.rotateRight(i + 20);
+			}
+		}
+	}
 
 	if (cursors.left.isDown)
 	{
@@ -205,6 +234,20 @@ function update() {
 	  }
 }
 
+function setPlanetPhysics(planetObj, circleSize, planetSpeed) {
+
+	planetObj.checkWorldBounds = true;
+	planetObj.events.onOutOfBounds.add(resetObject, this);
+	planetObj.body.setCircle(circleSize);
+	planetObj.body.static = true;
+	planetObj.rotation = Math.random() * (3 + 3) - 3;
+	planetObj.body.velocity.x = Math.cos(planetObj.rotation) * planetSpeed;
+	planetObj.body.velocity.y = Math.sin(planetObj.rotation) * planetSpeed;
+	planetObj.body.setCollisionGroup(planetCollisionGroup);
+	planetObj.body.collides(bulletsCollisionGroup);
+	planetObj.body.collides(playerCollisionGroup , planetHitsShip, this);
+
+}
 
 function fireBullet () {
     //  To avoid them being allowed to fire too fast we set a time limit
@@ -232,12 +275,15 @@ function fireBullet () {
 
 }
 
-function planetHitsShip (planet) {
+function planetHitsShip (planetObj) {
 	//TODO Respawn timeout for collision
 	//TODO Animations Explosions
-
+	//bugfix ship invincible
+	var key = planetObj.sprite.key;
+	var x = planetObj.x;
+	var y = planetObj.y;
 //	var destroyed = planets[planet.name].touch();
-	planet.sprite.kill();
+	planetObj.sprite.kill();
 	if(!ship.invincible) {
 		liveCounter-=1;
 		lives[liveCounter].kill();
@@ -252,6 +298,24 @@ function planetHitsShip (planet) {
 			ship.kill();
 		}
 	}
+
+	if(key === 'planet_big') {
+		for (var i = 0; i < 3; i++) {
+			var _x = x + (i*10);
+			var _y = y + (i*10);
+			var planet_middle = planets_middle.create( _x, _y, 'planet_middle');
+			setPlanetPhysics(planet_middle, 30, PLANETSPEED_MIDDLE);
+		}
+	}
+
+	if(key === 'planet_middle') {
+		for (var i = 0; i < 3; i++) {
+			var _x = x + (i*10);
+			var _y = y + (i*10);
+			var planet_small = planets_small.create(_x, _y, 'planet_small');
+			setPlanetPhysics(planet_small, 10, PLANETSPEED_SMALL);
+		}
+	}
 }
 
 //fucking setting everthin on zeroVelocityCrap
@@ -264,10 +328,33 @@ function setInvincible() {
 	ship.invincible = false;
 }
 
-function fireHitPlanet (planet, fire) {
+function fireHitPlanet (fire, planetObj) {
+	var key = planetObj.sprite.key;
 	//TODO Animations Explosions
-	planet.sprite.kill();
+	var x = planetObj.x;
+	var y = planetObj.y;
+
+	planetObj.sprite.kill();
 	fire.sprite.kill();
+
+	if(key === 'planet_big') {
+		for (var i = 0; i < 3; i++) {
+			var _x = x + (i*10);
+			var _y = y + (i*10);
+			var planet_middle = planets_middle.create(_x, _y, 'planet_middle');
+			setPlanetPhysics(planet_middle, 30, PLANETSPEED_MIDDLE);
+		}
+	}
+
+	if(key === 'planet_middle') {
+		for (var i = 0; i < 3; i++) {
+			var _x = x + (i*10);
+			var _y = y + (i*10);
+			var planet_small = planets_small.create(_x, _y, 'planet_small');
+			setPlanetPhysics(planet_small, 10, PLANETSPEED_SMALL);
+		}
+	}
+
 	//var destroyed = planets[planet.name].touch();
 	//planet.touch();
 }
